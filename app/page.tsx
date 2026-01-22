@@ -5,6 +5,7 @@ import MetricCard from '@/components/MetricCard';
 import PerformanceTable from '@/components/PerformanceTable';
 import StandardsComparison from '@/components/StandardsComparison';
 import DailyChecklist from '@/components/DailyChecklist';
+import PasswordProtection from '@/components/PasswordProtection';
 
 export default function Home() {
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -48,6 +49,7 @@ export default function Home() {
   const teamMembers = dashboardData?.teamMembers || [];
 
   return (
+        <PasswordProtection correctPassword="0101"></PasswordProtection>
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
@@ -114,5 +116,6 @@ export default function Home() {
         </div>
       </div>
     </div>
+    </PasswordProtection>
   );
 }
