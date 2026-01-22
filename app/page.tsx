@@ -49,7 +49,7 @@ export default function Home() {
   const teamMembers = dashboardData?.teamMembers || [];
 
   return (
-            <PasswordProtection correctPassword="0101"></PasswordProtection>
+            <PasswordProtection correctPassword="0101"></>
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
