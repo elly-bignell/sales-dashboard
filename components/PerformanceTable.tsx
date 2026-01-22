@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface TeamMember {
   name: string;
   revenue: number;
@@ -19,7 +21,7 @@ export default function PerformanceTable({ teamMembers }: PerformanceTableProps)
         <span className="text-2xl">🏆</span>
         <h2 className="text-xl font-bold text-gray-900">Staff Performance Standings</h2>
       </div>
-      <p className="text-gray-600 text-sm mb-6">Ranking team members based on total weekly volume across all metrics.</p>
+      <p className="text-gray-600 text-sm mb-6">Ranking team members based on total weekly volume across all metrics. Click a name to view detailed breakdown.</p>
 
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -38,12 +40,15 @@ export default function PerformanceTable({ teamMembers }: PerformanceTableProps)
             {teamMembers.map((member, index) => (
               <tr key={member.name} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-3">
+                  <Link 
+                    href={`/team-member?name=${encodeURIComponent(member.name)}`}
+                    className="flex items-center gap-3 hover:text-pink-600 transition-colors"
+                  >
                     <div className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">
                       {index + 1}
                     </div>
-                    <span className="font-semibold text-gray-900">{member.name}</span>
-                  </div>
+                    <span className="font-semibold text-gray-900 hover:text-pink-600">{member.name}</span>
+                  </Link>
                 </td>
                 <td className="py-4 px-4 font-semibold text-gray-900">${member.revenue}</td>
                 <td className="py-4 px-4 font-semibold text-gray-900">{member.sales}</td>
