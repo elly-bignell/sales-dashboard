@@ -21,15 +21,27 @@ const MONTH_NAMES: Record<string, number> = {
   'oct': 9, 'nov': 10, 'dec': 11
 };
 
+// Parse currency/number strings (handles $, commas, etc.)
+function parseNumber(value: any): number {
+  if (value === null || value === undefined || value === '') return 0;
+  const cleaned = String(value).replace(/[$,]/g, '').trim();
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function parseInteger(value: any): number {
+  if (value === null || value === undefined || value === '') return 0;
+  const cleaned = String(value).replace(/[$,]/g, '').trim();
+  const parsed = parseInt(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 // Parse date from various formats
-// Supports: "Friday 23 January 2026", "23 January 2026", "DD/MM/YYYY", "YYYY-MM-DD", "YYYY/MM/DD"
 function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null;
   
-  // Remove day name if present (e.g., "Friday 23 January 2026" -> "23 January 2026")
   const cleanedDate = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+/i, '').trim();
   
-  // Try "DD Month YYYY" or "D Month YYYY" format (e.g., "23 January 2026")
   const ddMonthYYYY = cleanedDate.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
   if (ddMonthYYYY) {
     const day = parseInt(ddMonthYYYY[1]);
@@ -41,7 +53,6 @@ function parseDate(dateStr: string): Date | null {
     }
   }
   
-  // Try DD/MM/YYYY format
   const ddmmyyyy = cleanedDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (ddmmyyyy) {
     const day = parseInt(ddmmyyyy[1]);
@@ -50,7 +61,6 @@ function parseDate(dateStr: string): Date | null {
     return new Date(year, month, day);
   }
   
-  // Try YYYY/MM/DD format
   const yyyymmdd_slash = cleanedDate.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
   if (yyyymmdd_slash) {
     const year = parseInt(yyyymmdd_slash[1]);
@@ -59,7 +69,6 @@ function parseDate(dateStr: string): Date | null {
     return new Date(year, month, day);
   }
   
-  // Try YYYY-MM-DD format
   const yyyymmdd_dash = cleanedDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (yyyymmdd_dash) {
     const year = parseInt(yyyymmdd_dash[1]);
@@ -68,7 +77,6 @@ function parseDate(dateStr: string): Date | null {
     return new Date(year, month, day);
   }
   
-  // Fallback to native Date parsing
   const parsed = new Date(dateStr);
   return isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -115,13 +123,13 @@ export async function getConfig() {
     const rows = await getSheetData('Config');
     
     const config = {
-      teamSize: parseInt(rows[1]?.[1]) || 3,
+      teamSize: parseInteger(rows[1]?.[1]) || 3,
       targets: {
-        revenue: parseFloat(rows[2]?.[1]) || 500,
-        sales: parseInt(rows[3]?.[1]) || 1,
-        attended: parseInt(rows[4]?.[1]) || 2,
-        bookings: parseInt(rows[5]?.[1]) || 4,
-        calls: parseInt(rows[6]?.[1]) || 40,
+        revenue: parseNumber(rows[2]?.[1]) || 500,
+        sales: parseInteger(rows[3]?.[1]) || 1,
+        attended: parseInteger(rows[4]?.[1]) || 2,
+        bookings: parseInteger(rows[5]?.[1]) || 4,
+        calls: parseInteger(rows[6]?.[1]) || 40,
       },
       holidays: rows[9]?.[1]?.split(',').map(function(d: string) { return d.trim(); }) || [],
       teamMembers: [] as { name: string; startDate: string; displayName: string }[],
@@ -248,11 +256,11 @@ export function parseTeamMemberDataForPeriod(rows: any[], startDate: Date, endDa
       if (rowDate && rowDate >= startDate && rowDate <= endDate) {
         const dayData = {
           date: row[0],
-          revenue: parseFloat(row[1]) || 0,
-          sales: parseInt(row[2]) || 0,
-          attended: parseInt(row[3]) || 0,
-          bookings: parseInt(row[4]) || 0,
-          calls: parseInt(row[5]) || 0,
+          revenue: parseNumber(row[1]),
+          sales: parseInteger(row[2]),
+          attended: parseInteger(row[3]),
+          bookings: parseInteger(row[4]),
+          calls: parseInteger(row[5]),
         };
         dailyData.push(dayData);
         totalRevenue += dayData.revenue;
@@ -289,11 +297,11 @@ export function parseAllPersonData(rows: any[]) {
         allData.push({
           date: row[0],
           dateObj: rowDate,
-          revenue: parseFloat(row[1]) || 0,
-          sales: parseInt(row[2]) || 0,
-          attended: parseInt(row[3]) || 0,
-          bookings: parseInt(row[4]) || 0,
-          calls: parseInt(row[5]) || 0,
+          revenue: parseNumber(row[1]),
+          sales: parseInteger(row[2]),
+          attended: parseInteger(row[3]),
+          bookings: parseInteger(row[4]),
+          calls: parseInteger(row[5]),
         });
       }
     }
