@@ -11,6 +11,68 @@ export function getDisplayName(personKey: string): string {
   return DISPLAY_NAMES[personKey] || personKey;
 }
 
+// Month name mapping
+const MONTH_NAMES: Record<string, number> = {
+  'january': 0, 'february': 1, 'march': 2, 'april': 3,
+  'may': 4, 'june': 5, 'july': 6, 'august': 7,
+  'september': 8, 'october': 9, 'november': 10, 'december': 11,
+  'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3,
+  'jun': 5, 'jul': 6, 'aug': 7, 'sep': 8,
+  'oct': 9, 'nov': 10, 'dec': 11
+};
+
+// Parse date from various formats
+// Supports: "Friday 23 January 2026", "23 January 2026", "DD/MM/YYYY", "YYYY-MM-DD", "YYYY/MM/DD"
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  
+  // Remove day name if present (e.g., "Friday 23 January 2026" -> "23 January 2026")
+  const cleanedDate = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+/i, '').trim();
+  
+  // Try "DD Month YYYY" or "D Month YYYY" format (e.g., "23 January 2026")
+  const ddMonthYYYY = cleanedDate.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (ddMonthYYYY) {
+    const day = parseInt(ddMonthYYYY[1]);
+    const monthName = ddMonthYYYY[2].toLowerCase();
+    const year = parseInt(ddMonthYYYY[3]);
+    const month = MONTH_NAMES[monthName];
+    if (month !== undefined) {
+      return new Date(year, month, day);
+    }
+  }
+  
+  // Try DD/MM/YYYY format
+  const ddmmyyyy = cleanedDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ddmmyyyy) {
+    const day = parseInt(ddmmyyyy[1]);
+    const month = parseInt(ddmmyyyy[2]) - 1;
+    const year = parseInt(ddmmyyyy[3]);
+    return new Date(year, month, day);
+  }
+  
+  // Try YYYY/MM/DD format
+  const yyyymmdd_slash = cleanedDate.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (yyyymmdd_slash) {
+    const year = parseInt(yyyymmdd_slash[1]);
+    const month = parseInt(yyyymmdd_slash[2]) - 1;
+    const day = parseInt(yyyymmdd_slash[3]);
+    return new Date(year, month, day);
+  }
+  
+  // Try YYYY-MM-DD format
+  const yyyymmdd_dash = cleanedDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (yyyymmdd_dash) {
+    const year = parseInt(yyyymmdd_dash[1]);
+    const month = parseInt(yyyymmdd_dash[2]) - 1;
+    const day = parseInt(yyyymmdd_dash[3]);
+    return new Date(year, month, day);
+  }
+  
+  // Fallback to native Date parsing
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // Initialize Google Sheets API
 export async function getGoogleSheetsClient() {
   try {
@@ -160,7 +222,8 @@ export function getWeekWorkingDays(holidays: string[]) {
 // Get active team members count as of a date
 export function getActiveTeamMembers(teamMembers: { startDate: string }[], asAtDate: Date): number {
   return teamMembers.filter(function(m) {
-    return new Date(m.startDate) <= asAtDate;
+    const startDate = parseDate(m.startDate);
+    return startDate && startDate <= asAtDate;
   }).length;
 }
 
@@ -181,8 +244,8 @@ export function parseTeamMemberDataForPeriod(rows: any[], startDate: Date, endDa
 
   dataRows.forEach(function(row) {
     if (row[0]) {
-      const rowDate = new Date(row[0]);
-      if (rowDate >= startDate && rowDate <= endDate) {
+      const rowDate = parseDate(row[0]);
+      if (rowDate && rowDate >= startDate && rowDate <= endDate) {
         const dayData = {
           date: row[0],
           revenue: parseFloat(row[1]) || 0,
@@ -221,14 +284,18 @@ export function parseAllPersonData(rows: any[]) {
 
   dataRows.forEach(function(row) {
     if (row[0]) {
-      allData.push({
-        date: row[0],
-        revenue: parseFloat(row[1]) || 0,
-        sales: parseInt(row[2]) || 0,
-        attended: parseInt(row[3]) || 0,
-        bookings: parseInt(row[4]) || 0,
-        calls: parseInt(row[5]) || 0,
-      });
+      const rowDate = parseDate(row[0]);
+      if (rowDate) {
+        allData.push({
+          date: row[0],
+          dateObj: rowDate,
+          revenue: parseFloat(row[1]) || 0,
+          sales: parseInt(row[2]) || 0,
+          attended: parseInt(row[3]) || 0,
+          bookings: parseInt(row[4]) || 0,
+          calls: parseInt(row[5]) || 0,
+        });
+      }
     }
   });
 
@@ -245,10 +312,12 @@ export function calculatePersonalBests(allData: any[]) {
   const monthlyData: Record<string, { revenue: number; sales: number }> = {};
 
   allData.forEach(function(day) {
-    const date = new Date(day.date);
+    const date = day.dateObj || parseDate(day.date);
+    if (!date) return;
+    
     const weekStart = getWeekStart(date);
     const weekKey = weekStart.toISOString().split('T')[0];
-    const monthKey = day.date.substring(0, 7);
+    const monthKey = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
 
     if (!weeklyData[weekKey]) weeklyData[weekKey] = { revenue: 0, sales: 0 };
     weeklyData[weekKey].revenue += day.revenue;
@@ -338,14 +407,16 @@ export function calculateStatus(variances: {
 
 // Check if team member is new
 export function isNewMember(startDate: string): boolean {
-  const start = new Date(startDate);
+  const start = parseDate(startDate);
+  if (!start) return false;
   const now = new Date();
   return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth() && start.getDate() > 1;
 }
 
 // Get person's working days for a period
 export function getPersonWorkingDaysForPeriod(periodStart: Date, periodEnd: Date, personStartDate: string, holidays: string[]): number {
-  const pStart = new Date(personStartDate);
+  const pStart = parseDate(personStartDate);
+  if (!pStart) return 0;
   const effectiveStart = pStart > periodStart ? pStart : periodStart;
   if (effectiveStart > periodEnd) return 0;
   return getWorkingDays(effectiveStart, periodEnd, holidays);
@@ -353,7 +424,8 @@ export function getPersonWorkingDaysForPeriod(periodStart: Date, periodEnd: Date
 
 // Calculate days/weeks on board
 export function getDaysOnBoard(startDate: string): number {
-  const start = new Date(startDate);
+  const start = parseDate(startDate);
+  if (!start) return 0;
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - start.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
