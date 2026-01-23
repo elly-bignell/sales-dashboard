@@ -102,4 +102,49 @@ export default function PerformanceTableV2({ members, dailyTargets }: Performanc
                   </td>
                   <td className="py-4 px-4">
                     <div className="font-semibold text-gray-900">{member.data.sales}</div>
-                    <div className={`text-xs ${member.variances.sale
+                    <div className={`text-xs ${member.variances.sales.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {member.variances.sales.diff >= 0 ? '+' : ''}{member.variances.sales.percentage}%
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="font-semibold text-gray-900">{member.data.attended}</div>
+                    <div className={`text-xs ${member.variances.attended.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {member.variances.attended.diff >= 0 ? '+' : ''}{member.variances.attended.percentage}%
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="font-semibold text-gray-900">{member.data.bookings}</div>
+                    <div className={`text-xs ${member.variances.bookings.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {member.variances.bookings.diff >= 0 ? '+' : ''}{member.variances.bookings.percentage}%
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="font-semibold text-gray-900">{member.data.calls}</div>
+                    <div className={`text-xs ${member.variances.calls.diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {member.variances.calls.diff >= 0 ? '+' : ''}{member.variances.calls.percentage}%
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            member.progress >= 90 ? 'bg-green-500' : 
+                            member.progress >= 70 ? 'bg-yellow-500' : 
+                            'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(member.progress, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700">{member.progress}%</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
