@@ -56,19 +56,30 @@ export default function PeoplePage() {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         
+        {/* Header with Logos */}
         <div className="flex items-center justify-between">
           <div>
+            <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors mb-2 inline-block">
+              ← Back to Dashboard
+            </Link>
             <h1 className="text-3xl font-bold text-gray-900">Team Directory</h1>
             <p className="text-gray-500">Click a name to view detailed performance</p>
           </div>
-          <Link 
-            href="/"
-            className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            ← Back to Dashboard
-          </Link>
+          <div className="flex items-center gap-6">
+            <img 
+              src="/MS_Logo.png" 
+              alt="Marketing Sweet" 
+              className="h-10 object-contain"
+            />
+            <img 
+              src="/Quodo_logo_option_1_text_and_animal.png" 
+              alt="Quodo" 
+              className="h-12 object-contain"
+            />
+          </div>
         </div>
 
+        {/* Filter Buttons */}
         <div className="flex gap-2">
           <button
             onClick={function() { setFilter('all'); }}
@@ -96,6 +107,7 @@ export default function PeoplePage() {
           </button>
         </div>
 
+        {/* People Table */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <table className="w-full">
             <thead>
