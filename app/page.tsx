@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import MetricCard from '@/components/MetricCardV2';
-import PerformanceTable from '@/components/PerformanceTableV2';
-import NewMembersSection from '@/components/NewMembersSection';
 
 export default function Home() {
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -68,12 +68,26 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {monthName.toUpperCase()} {year}
-          </h1>
-          <p className="text-gray-500">Sales Team Scorecard</p>
+        {/* Header with Logos */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {monthName.toUpperCase()} {year}
+            </h1>
+            <p className="text-gray-500">Sales Team Scorecard</p>
+          </div>
+          <div className="flex items-center gap-6">
+            <img 
+              src="/MS_Logo.png" 
+              alt="Marketing Sweet" 
+              className="h-10 object-contain"
+            />
+            <img 
+              src="/Quodo_logo_option_1_text_and_animal.png" 
+              alt="Quodo" 
+              className="h-12 object-contain"
+            />
+          </div>
         </div>
 
         {/* Scoreboard Card */}
@@ -256,7 +270,12 @@ export default function Home() {
                 return (
                   <div key={member.name} className="flex items-center justify-between bg-white rounded-lg p-3 border border-red-100">
                     <div>
-                      <span className="font-semibold text-gray-900">{member.displayName}</span>
+                      <Link 
+                        href={'/people/' + encodeURIComponent(member.name)}
+                        className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
+                      >
+                        {member.displayName}
+                      </Link>
                       {member.isNew && <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">NEW</span>}
                     </div>
                     <div className="text-sm text-red-600">
@@ -269,19 +288,86 @@ export default function Home() {
           </div>
         )}
 
-        {/* Team Leaderboard */}
-        <PerformanceTable 
-          members={memberData} 
-          dailyTargets={config.targets}
-        />
-
-        {/* New Members Section */}
-        {newMembers.length > 0 && (
-          <NewMembersSection 
-            members={newMembers}
-            dailyTargets={config.targets}
-          />
-        )}
+        {/* Team Directory */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">👥</span>
+              <h2 className="text-lg font-semibold text-gray-900">Team Directory</h2>
+            </div>
+            <Link 
+              href="/people"
+              className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              View Full Directory →
+            </Link>
+          </div>
+          
+          <div className={allMembers.length > 10 ? "max-h-96 overflow-y-auto" : ""}>
+            <table className="w-full">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Name</th>
+                  <th className="text-left py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</th>
+                  <th className="text-right py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Revenue MTD</th>
+                  <th className="text-right py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Sales</th>
+                  <th className="text-right py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Attended</th>
+                  <th className="text-right py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Bookings</th>
+                  <th className="text-right py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Calls</th>
+                  <th className="text-right py-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Progress</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allMembers.map(function(member) {
+                  return (
+                    <tr key={member.name} className="border-b border-gray-50 hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-3">
+                        <Link 
+                          href={'/people/' + encodeURIComponent(member.name)}
+                          className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                        >
+                          {member.displayName}
+                        </Link>
+                        {member.isNew && <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">NEW</span>}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={'inline-block px-2 py-0.5 text-xs font-medium rounded ' + (
+                          member.status === 'Overperforming' ? 'bg-green-100 text-green-700' :
+                          member.status === 'Underperforming' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-600'
+                        )}>
+                          {member.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-semibold text-gray-900">
+                        ${Math.round(member.data.revenue).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-3 text-right text-gray-900">{member.data.sales}</td>
+                      <td className="py-3 px-3 text-right text-gray-900">{member.data.attended}</td>
+                      <td className="py-3 px-3 text-right text-gray-900">{member.data.bookings}</td>
+                      <td className="py-3 px-3 text-right text-gray-900">{member.data.calls}</td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2 justify-end">
+                          <div className="w-16 bg-gray-100 rounded-full h-2">
+                            <div 
+                              className={'h-2 rounded-full ' + (
+                                member.progress >= 90 ? 'bg-green-500' : 
+                                member.progress >= 70 ? 'bg-yellow-500' : 
+                                'bg-red-500'
+                              )}
+                              style={{ width: Math.min(member.progress, 100) + '%' }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium text-gray-700 w-10 text-right">{member.progress}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
       </div>
     </div>
