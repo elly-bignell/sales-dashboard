@@ -91,7 +91,7 @@ export async function getConfig() {
   }
 }
 
-// Get Monday of current week (Australia/Adelaide timezone)
+// Get Monday of current week
 export function getWeekStart(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -138,7 +138,7 @@ export function getMonthWorkingDays(holidays: string[]) {
   };
 }
 
-// Get working days for current week (Monday to today)
+// Get working days for current week
 export function getWeekWorkingDays(holidays: string[]) {
   const now = new Date();
   const weekStart = getWeekStart(now);
@@ -164,10 +164,10 @@ export function getActiveTeamMembers(teamMembers: { startDate: string }[], asAtD
   }).length;
 }
 
-// Parse team member data from sheet for a specific date range
+// Parse team member data for a specific date range
 export function parseTeamMemberDataForPeriod(rows: any[], startDate: Date, endDate: Date) {
   if (rows.length < 2) {
-    return { revenue: 0, sales: 0, attended: 0, bookings: 0, calls: 0, daysWithData: 0 };
+    return { revenue: 0, sales: 0, attended: 0, bookings: 0, calls: 0, daysWithData: 0, dailyData: [] };
   }
 
   const dataRows = rows.slice(1);
@@ -177,16 +177,26 @@ export function parseTeamMemberDataForPeriod(rows: any[], startDate: Date, endDa
   let totalBookings = 0;
   let totalCalls = 0;
   let daysWithData = 0;
+  const dailyData: any[] = [];
 
   dataRows.forEach(function(row) {
     if (row[0]) {
       const rowDate = new Date(row[0]);
       if (rowDate >= startDate && rowDate <= endDate) {
-        totalRevenue += parseFloat(row[1]) || 0;
-        totalSales += parseInt(row[2]) || 0;
-        totalAttended += parseInt(row[3]) || 0;
-        totalBookings += parseInt(row[4]) || 0;
-        totalCalls += parseInt(row[5]) || 0;
+        const dayData = {
+          date: row[0],
+          revenue: parseFloat(row[1]) || 0,
+          sales: parseInt(row[2]) || 0,
+          attended: parseInt(row[3]) || 0,
+          bookings: parseInt(row[4]) || 0,
+          calls: parseInt(row[5]) || 0,
+        };
+        dailyData.push(dayData);
+        totalRevenue += dayData.revenue;
+        totalSales += dayData.sales;
+        totalAttended += dayData.attended;
+        totalBookings += dayData.bookings;
+        totalCalls += dayData.calls;
         daysWithData++;
       }
     }
@@ -199,6 +209,84 @@ export function parseTeamMemberDataForPeriod(rows: any[], startDate: Date, endDa
     bookings: totalBookings,
     calls: totalCalls,
     daysWithData,
+    dailyData,
+  };
+}
+
+// Get all data for a person's sheet
+export function parseAllPersonData(rows: any[]) {
+  if (rows.length < 2) return [];
+  const dataRows = rows.slice(1);
+  const allData: any[] = [];
+
+  dataRows.forEach(function(row) {
+    if (row[0]) {
+      allData.push({
+        date: row[0],
+        revenue: parseFloat(row[1]) || 0,
+        sales: parseInt(row[2]) || 0,
+        attended: parseInt(row[3]) || 0,
+        bookings: parseInt(row[4]) || 0,
+        calls: parseInt(row[5]) || 0,
+      });
+    }
+  });
+
+  return allData;
+}
+
+// Calculate personal bests
+export function calculatePersonalBests(allData: any[]) {
+  if (allData.length === 0) {
+    return { bestRevenueWeek: null, bestSalesWeek: null, bestRevenueMonth: null, bestSalesMonth: null };
+  }
+
+  const weeklyData: Record<string, { revenue: number; sales: number }> = {};
+  const monthlyData: Record<string, { revenue: number; sales: number }> = {};
+
+  allData.forEach(function(day) {
+    const date = new Date(day.date);
+    const weekStart = getWeekStart(date);
+    const weekKey = weekStart.toISOString().split('T')[0];
+    const monthKey = day.date.substring(0, 7);
+
+    if (!weeklyData[weekKey]) weeklyData[weekKey] = { revenue: 0, sales: 0 };
+    weeklyData[weekKey].revenue += day.revenue;
+    weeklyData[weekKey].sales += day.sales;
+
+    if (!monthlyData[monthKey]) monthlyData[monthKey] = { revenue: 0, sales: 0 };
+    monthlyData[monthKey].revenue += day.revenue;
+    monthlyData[monthKey].sales += day.sales;
+  });
+
+  let bestRevenueWeek = { week: '', revenue: 0 };
+  let bestSalesWeek = { week: '', sales: 0 };
+  let bestRevenueMonth = { month: '', revenue: 0 };
+  let bestSalesMonth = { month: '', sales: 0 };
+
+  Object.keys(weeklyData).forEach(function(week) {
+    if (weeklyData[week].revenue > bestRevenueWeek.revenue) {
+      bestRevenueWeek = { week, revenue: weeklyData[week].revenue };
+    }
+    if (weeklyData[week].sales > bestSalesWeek.sales) {
+      bestSalesWeek = { week, sales: weeklyData[week].sales };
+    }
+  });
+
+  Object.keys(monthlyData).forEach(function(month) {
+    if (monthlyData[month].revenue > bestRevenueMonth.revenue) {
+      bestRevenueMonth = { month, revenue: monthlyData[month].revenue };
+    }
+    if (monthlyData[month].sales > bestSalesMonth.sales) {
+      bestSalesMonth = { month, sales: monthlyData[month].sales };
+    }
+  });
+
+  return {
+    bestRevenueWeek: bestRevenueWeek.revenue > 0 ? bestRevenueWeek : null,
+    bestSalesWeek: bestSalesWeek.sales > 0 ? bestSalesWeek : null,
+    bestRevenueMonth: bestRevenueMonth.revenue > 0 ? bestRevenueMonth : null,
+    bestSalesMonth: bestSalesMonth.sales > 0 ? bestSalesMonth : null,
   };
 }
 
@@ -207,7 +295,6 @@ export function calculateVariance(actual: number, target: number, dailyTarget: n
   const diff = actual - target;
   const percentage = target > 0 ? Math.round((diff / target) * 100) : 0;
   const daysAheadBehind = dailyTarget > 0 ? Math.round((diff / dailyTarget) * 10) / 10 : 0;
-  
   return { diff, percentage, daysAheadBehind };
 }
 
@@ -229,13 +316,10 @@ export function calculateStatus(variances: {
 
   const hasUnderperforming = metrics.some(function(m) { return m.value < -0.5; });
   const allPositive = metrics.every(function(m) { return m.value >= 0; });
-  
-  const biggestShortfall = metrics.reduce(function(worst, current) {
-    return current.value < worst.value ? current : worst;
-  });
+  const sortedMetrics = metrics.slice().sort(function(a, b) { return a.value - b.value; });
+  const biggestShortfall = sortedMetrics[0];
 
   let status: 'Underperforming' | 'On Standard' | 'Overperforming';
-  
   if (hasUnderperforming) {
     status = 'Underperforming';
   } else if (allPositive) {
@@ -248,31 +332,154 @@ export function calculateStatus(variances: {
     status,
     biggestShortfall: biggestShortfall.name as 'revenue' | 'sales' | 'attended' | 'bookings' | 'calls',
     biggestShortfallDays: biggestShortfall.value,
+    shortfalls: sortedMetrics.filter(function(m) { return m.value < 0; }).slice(0, 3),
   };
 }
 
-// Check if team member is new (started this month)
+// Check if team member is new
 export function isNewMember(startDate: string): boolean {
   const start = new Date(startDate);
   const now = new Date();
-  return start.getFullYear() === now.getFullYear() && 
-         start.getMonth() === now.getMonth() &&
-         start.getDate() > 1;
+  return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth() && start.getDate() > 1;
 }
 
-// Get person's working days for a period (respecting their start date)
-export function getPersonWorkingDaysForPeriod(
-  periodStart: Date,
-  periodEnd: Date,
-  personStartDate: string,
-  holidays: string[]
-): number {
+// Get person's working days for a period
+export function getPersonWorkingDaysForPeriod(periodStart: Date, periodEnd: Date, personStartDate: string, holidays: string[]): number {
   const pStart = new Date(personStartDate);
   const effectiveStart = pStart > periodStart ? pStart : periodStart;
-  
   if (effectiveStart > periodEnd) return 0;
-  
   return getWorkingDays(effectiveStart, periodEnd, holidays);
+}
+
+// Calculate days/weeks on board
+export function getDaysOnBoard(startDate: string): number {
+  const start = new Date(startDate);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - start.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+export function getWeeksOnBoard(startDate: string): number {
+  return Math.floor(getDaysOnBoard(startDate) / 7);
+}
+
+// Get individual person data
+export async function getPersonData(personKey: string) {
+  try {
+    const config = await getConfig();
+    const member = config.teamMembers.find(function(m) { return m.name === personKey; });
+    if (!member) throw new Error('Team member ' + personKey + ' not found');
+
+    const rows = await getSheetData(personKey);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekStart = getWeekStart(now);
+
+    const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, now);
+    const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, now, member.startDate, config.holidays);
+    const mtdTargets = {
+      revenue: config.targets.revenue * mtdWorkingDays,
+      sales: config.targets.sales * mtdWorkingDays,
+      attended: config.targets.attended * mtdWorkingDays,
+      bookings: config.targets.bookings * mtdWorkingDays,
+      calls: config.targets.calls * mtdWorkingDays,
+    };
+
+    const wtdData = parseTeamMemberDataForPeriod(rows, weekStart, now);
+    const wtdWorkingDays = getPersonWorkingDaysForPeriod(weekStart, now, member.startDate, config.holidays);
+    const wtdTargets = {
+      revenue: config.targets.revenue * wtdWorkingDays,
+      sales: config.targets.sales * wtdWorkingDays,
+      attended: config.targets.attended * wtdWorkingDays,
+      bookings: config.targets.bookings * wtdWorkingDays,
+      calls: config.targets.calls * wtdWorkingDays,
+    };
+
+    const mtdVariances = {
+      revenue: calculateVariance(mtdData.revenue, mtdTargets.revenue, config.targets.revenue),
+      sales: calculateVariance(mtdData.sales, mtdTargets.sales, config.targets.sales),
+      attended: calculateVariance(mtdData.attended, mtdTargets.attended, config.targets.attended),
+      bookings: calculateVariance(mtdData.bookings, mtdTargets.bookings, config.targets.bookings),
+      calls: calculateVariance(mtdData.calls, mtdTargets.calls, config.targets.calls),
+    };
+
+    const wtdVariances = {
+      revenue: calculateVariance(wtdData.revenue, wtdTargets.revenue, config.targets.revenue),
+      sales: calculateVariance(wtdData.sales, wtdTargets.sales, config.targets.sales),
+      attended: calculateVariance(wtdData.attended, wtdTargets.attended, config.targets.attended),
+      bookings: calculateVariance(wtdData.bookings, wtdTargets.bookings, config.targets.bookings),
+      calls: calculateVariance(wtdData.calls, wtdTargets.calls, config.targets.calls),
+    };
+
+    const mtdStatus = calculateStatus(mtdVariances);
+    const wtdStatus = calculateStatus(wtdVariances);
+    const allData = parseAllPersonData(rows);
+    const personalBests = calculatePersonalBests(allData);
+
+    return {
+      personKey,
+      displayName: member.displayName,
+      startDate: member.startDate,
+      daysOnBoard: getDaysOnBoard(member.startDate),
+      weeksOnBoard: getWeeksOnBoard(member.startDate),
+      isNew: isNewMember(member.startDate),
+      dailyTargets: config.targets,
+      mtd: { data: mtdData, targets: mtdTargets, variances: mtdVariances, workingDays: mtdWorkingDays, status: mtdStatus.status, shortfalls: mtdStatus.shortfalls },
+      wtd: { data: wtdData, targets: wtdTargets, variances: wtdVariances, workingDays: wtdWorkingDays, status: wtdStatus.status, shortfalls: wtdStatus.shortfalls },
+      personalBests,
+      allDailyData: allData,
+    };
+  } catch (error) {
+    console.error('Error fetching person data:', error);
+    throw error;
+  }
+}
+
+// Get all people for directory
+export async function getAllPeopleData() {
+  try {
+    const config = await getConfig();
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const people = [];
+
+    for (const member of config.teamMembers) {
+      const rows = await getSheetData(member.name);
+      const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, now);
+      const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, now, member.startDate, config.holidays);
+      const mtdTargets = {
+        revenue: config.targets.revenue * mtdWorkingDays,
+        sales: config.targets.sales * mtdWorkingDays,
+        attended: config.targets.attended * mtdWorkingDays,
+        bookings: config.targets.bookings * mtdWorkingDays,
+        calls: config.targets.calls * mtdWorkingDays,
+      };
+      const mtdVariances = {
+        revenue: calculateVariance(mtdData.revenue, mtdTargets.revenue, config.targets.revenue),
+        sales: calculateVariance(mtdData.sales, mtdTargets.sales, config.targets.sales),
+        attended: calculateVariance(mtdData.attended, mtdTargets.attended, config.targets.attended),
+        bookings: calculateVariance(mtdData.bookings, mtdTargets.bookings, config.targets.bookings),
+        calls: calculateVariance(mtdData.calls, mtdTargets.calls, config.targets.calls),
+      };
+      const statusInfo = calculateStatus(mtdVariances);
+
+      people.push({
+        personKey: member.name,
+        displayName: member.displayName,
+        startDate: member.startDate,
+        weeksOnBoard: getWeeksOnBoard(member.startDate),
+        isNew: isNewMember(member.startDate),
+        revenueMTD: mtdData.revenue,
+        status: statusInfo.status,
+        biggestShortfall: statusInfo.biggestShortfall,
+        biggestShortfallDays: statusInfo.biggestShortfallDays,
+      });
+    }
+    return people;
+  } catch (error) {
+    console.error('Error fetching all people data:', error);
+    throw error;
+  }
 }
 
 // Get all dashboard data
@@ -282,18 +489,14 @@ export async function getDashboardData() {
     const now = new Date();
     const monthDays = getMonthWorkingDays(config.holidays);
     const weekDays = getWeekWorkingDays(config.holidays);
-    
     const monthName = now.toLocaleString('default', { month: 'long' });
     const year = now.getFullYear();
-    
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const today = new Date();
-    
     const activeCount = getActiveTeamMembers(config.teamMembers, today);
-    
+
     const memberData: any[] = [];
     const newMembers: any[] = [];
-    
     let teamMTDTotals = { revenue: 0, sales: 0, attended: 0, bookings: 0, calls: 0 };
     let teamMTDTargets = { revenue: 0, sales: 0, attended: 0, bookings: 0, calls: 0 };
     let teamWTDTotals = { revenue: 0, sales: 0, attended: 0, bookings: 0, calls: 0 };
@@ -301,11 +504,8 @@ export async function getDashboardData() {
 
     for (const member of config.teamMembers) {
       const rows = await getSheetData(member.name);
-      
-      // MTD data
       const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, today);
       const memberMTDWorkingDays = getPersonWorkingDaysForPeriod(monthStart, today, member.startDate, config.holidays);
-      
       const mtdTargets = {
         revenue: config.targets.revenue * memberMTDWorkingDays,
         sales: config.targets.sales * memberMTDWorkingDays,
@@ -313,11 +513,9 @@ export async function getDashboardData() {
         bookings: config.targets.bookings * memberMTDWorkingDays,
         calls: config.targets.calls * memberMTDWorkingDays,
       };
-      
-      // WTD data
+
       const wtdData = parseTeamMemberDataForPeriod(rows, weekDays.start, today);
       const memberWTDWorkingDays = getPersonWorkingDaysForPeriod(weekDays.start, today, member.startDate, config.holidays);
-      
       const wtdTargets = {
         revenue: config.targets.revenue * memberWTDWorkingDays,
         sales: config.targets.sales * memberWTDWorkingDays,
@@ -325,55 +523,37 @@ export async function getDashboardData() {
         bookings: config.targets.bookings * memberWTDWorkingDays,
         calls: config.targets.calls * memberWTDWorkingDays,
       };
-      
-      // Add to team totals
+
       teamMTDTotals.revenue += mtdData.revenue;
       teamMTDTotals.sales += mtdData.sales;
       teamMTDTotals.attended += mtdData.attended;
       teamMTDTotals.bookings += mtdData.bookings;
       teamMTDTotals.calls += mtdData.calls;
-      
       teamMTDTargets.revenue += mtdTargets.revenue;
       teamMTDTargets.sales += mtdTargets.sales;
       teamMTDTargets.attended += mtdTargets.attended;
       teamMTDTargets.bookings += mtdTargets.bookings;
       teamMTDTargets.calls += mtdTargets.calls;
-      
       teamWTDTotals.revenue += wtdData.revenue;
       teamWTDTotals.sales += wtdData.sales;
       teamWTDTotals.attended += wtdData.attended;
       teamWTDTotals.bookings += wtdData.bookings;
       teamWTDTotals.calls += wtdData.calls;
-      
       teamWTDTargets.revenue += wtdTargets.revenue;
       teamWTDTargets.sales += wtdTargets.sales;
       teamWTDTargets.attended += wtdTargets.attended;
       teamWTDTargets.bookings += wtdTargets.bookings;
       teamWTDTargets.calls += wtdTargets.calls;
-      
-      // Calculate variances for member
+
       const revenueVar = calculateVariance(mtdData.revenue, mtdTargets.revenue, config.targets.revenue);
       const salesVar = calculateVariance(mtdData.sales, mtdTargets.sales, config.targets.sales);
       const attendedVar = calculateVariance(mtdData.attended, mtdTargets.attended, config.targets.attended);
       const bookingsVar = calculateVariance(mtdData.bookings, mtdTargets.bookings, config.targets.bookings);
       const callsVar = calculateVariance(mtdData.calls, mtdTargets.calls, config.targets.calls);
-      
-      const progress = mtdTargets.revenue > 0 ? Math.round((
-        (mtdData.revenue / mtdTargets.revenue || 0) +
-        (mtdData.sales / mtdTargets.sales || 0) +
-        (mtdData.attended / mtdTargets.attended || 0) +
-        (mtdData.bookings / mtdTargets.bookings || 0) +
-        (mtdData.calls / mtdTargets.calls || 0)
-      ) / 5 * 100) : 0;
-      
-      const statusInfo = calculateStatus({
-        revenue: revenueVar,
-        sales: salesVar,
-        attended: attendedVar,
-        bookings: bookingsVar,
-        calls: callsVar,
-      });
-      
+
+      const progress = mtdTargets.revenue > 0 ? Math.round(((mtdData.revenue / mtdTargets.revenue || 0) + (mtdData.sales / mtdTargets.sales || 0) + (mtdData.attended / mtdTargets.attended || 0) + (mtdData.bookings / mtdTargets.bookings || 0) + (mtdData.calls / mtdTargets.calls || 0)) / 5 * 100) : 0;
+      const statusInfo = calculateStatus({ revenue: revenueVar, sales: salesVar, attended: attendedVar, bookings: bookingsVar, calls: callsVar });
+
       const memberInfo = {
         name: member.name,
         displayName: member.displayName,
@@ -384,19 +564,13 @@ export async function getDashboardData() {
         mtdTargets,
         wtdData,
         wtdTargets,
-        variances: {
-          revenue: revenueVar,
-          sales: salesVar,
-          attended: attendedVar,
-          bookings: bookingsVar,
-          calls: callsVar,
-        },
+        variances: { revenue: revenueVar, sales: salesVar, attended: attendedVar, bookings: bookingsVar, calls: callsVar },
         progress,
         status: statusInfo.status,
         biggestShortfall: statusInfo.biggestShortfall,
         biggestShortfallDays: statusInfo.biggestShortfallDays,
       };
-      
+
       if (memberInfo.isNew) {
         newMembers.push(memberInfo);
       } else {
@@ -406,8 +580,7 @@ export async function getDashboardData() {
 
     memberData.sort(function(a, b) { return b.data.revenue - a.data.revenue; });
     newMembers.sort(function(a, b) { return b.data.revenue - a.data.revenue; });
-    
-    // Team daily standards = individual × active team members
+
     const teamDailyStandards = {
       revenue: config.targets.revenue * activeCount,
       sales: config.targets.sales * activeCount,
@@ -415,8 +588,7 @@ export async function getDashboardData() {
       bookings: config.targets.bookings * activeCount,
       calls: config.targets.calls * activeCount,
     };
-    
-    // Team variances
+
     const teamMTDVariances = {
       revenue: calculateVariance(teamMTDTotals.revenue, teamMTDTargets.revenue, teamDailyStandards.revenue),
       sales: calculateVariance(teamMTDTotals.sales, teamMTDTargets.sales, teamDailyStandards.sales),
@@ -424,7 +596,7 @@ export async function getDashboardData() {
       bookings: calculateVariance(teamMTDTotals.bookings, teamMTDTargets.bookings, teamDailyStandards.bookings),
       calls: calculateVariance(teamMTDTotals.calls, teamMTDTargets.calls, teamDailyStandards.calls),
     };
-    
+
     const teamWTDVariances = {
       revenue: calculateVariance(teamWTDTotals.revenue, teamWTDTargets.revenue, teamDailyStandards.revenue),
       sales: calculateVariance(teamWTDTotals.sales, teamWTDTargets.sales, teamDailyStandards.sales),
@@ -457,28 +629,5 @@ export async function getDashboardData() {
 }
 
 export async function getTeamMemberDetail(memberName: string) {
-  try {
-    const config = await getConfig();
-    const member = config.teamMembers.find(function(m) { return m.name === memberName; });
-    
-    if (!member) {
-      throw new Error('Team member ' + memberName + ' not found in config');
-    }
-    
-    const rows = await getSheetData(memberName);
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const data = parseTeamMemberDataForPeriod(rows, monthStart, now);
-    
-    return {
-      name: memberName,
-      displayName: member.displayName,
-      startDate: member.startDate,
-      data,
-      config,
-    };
-  } catch (error) {
-    console.error('Error fetching data for ' + memberName + ':', error);
-    throw error;
-  }
+  return getPersonData(memberName);
 }
