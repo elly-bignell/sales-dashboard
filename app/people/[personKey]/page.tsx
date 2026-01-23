@@ -75,7 +75,7 @@ export default function PersonPage() {
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         
-        {/* Header */}
+        {/* Header with Logos */}
         <div className="flex items-start justify-between">
           <div>
             <Link href="/people" className="text-sm text-gray-500 hover:text-gray-900 transition-colors mb-2 inline-block">
@@ -97,7 +97,22 @@ export default function PersonPage() {
             </p>
           </div>
           
-          {/* Period Toggle */}
+          <div className="flex items-center gap-6">
+            <img 
+              src="/MS_Logo.png" 
+              alt="Marketing Sweet" 
+              className="h-10 object-contain"
+            />
+            <img 
+              src="/Quodo_logo_option_1_text_and_animal.png" 
+              alt="Quodo" 
+              className="h-12 object-contain"
+            />
+          </div>
+        </div>
+
+        {/* Period Toggle */}
+        <div className="flex justify-end">
           <div className="flex bg-white rounded-lg border border-gray-200 p-1">
             <button
               onClick={function() { setPeriod('mtd'); }}
