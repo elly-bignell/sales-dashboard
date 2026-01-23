@@ -82,7 +82,7 @@ export default function Home() {
           {/* Row 1: Month Progress */}
           <div>
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Month Progress</div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
                 <div className="text-2xl font-semibold text-gray-900">{workingDays.total}</div>
                 <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Working Days</div>
@@ -95,41 +95,36 @@ export default function Home() {
                 <div className="text-2xl font-semibold text-gray-900">{workingDays.remaining}</div>
                 <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Days Remaining</div>
               </div>
+              <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100">
+                <div className="text-2xl font-semibold text-gray-900">{activeTeamMembers}</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Team Members</div>
+              </div>
             </div>
           </div>
 
-          {/* Row 2: Team Setup */}
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-2">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Team</div>
-              <div className="bg-slate-50 rounded-lg p-4 text-center border border-slate-100 h-full flex flex-col justify-center">
-                <div className="text-2xl font-semibold text-gray-900">{activeTeamMembers}</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide mt-1">Active Members</div>
+          {/* Row 2: Individual Daily Standards */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Individual Daily Standards</div>
+            <div className="grid grid-cols-5 gap-3">
+              <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
+                <div className="text-lg font-semibold text-gray-900">${config.targets.revenue}</div>
+                <div className="text-xs text-gray-500">Revenue</div>
               </div>
-            </div>
-            <div className="col-span-10">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Individual Daily Standards</div>
-              <div className="grid grid-cols-5 gap-2">
-                <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
-                  <div className="text-lg font-semibold text-gray-900">${config.targets.revenue}</div>
-                  <div className="text-xs text-gray-500">Revenue</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
-                  <div className="text-lg font-semibold text-gray-900">{config.targets.sales}</div>
-                  <div className="text-xs text-gray-500">Sales</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
-                  <div className="text-lg font-semibold text-gray-900">{config.targets.attended}</div>
-                  <div className="text-xs text-gray-500">Attended</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
-                  <div className="text-lg font-semibold text-gray-900">{config.targets.bookings}</div>
-                  <div className="text-xs text-gray-500">Bookings</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
-                  <div className="text-lg font-semibold text-gray-900">{config.targets.calls}</div>
-                  <div className="text-xs text-gray-500">Calls</div>
-                </div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
+                <div className="text-lg font-semibold text-gray-900">{config.targets.sales}</div>
+                <div className="text-xs text-gray-500">Sales</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
+                <div className="text-lg font-semibold text-gray-900">{config.targets.attended}</div>
+                <div className="text-xs text-gray-500">Attended</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
+                <div className="text-lg font-semibold text-gray-900">{config.targets.bookings}</div>
+                <div className="text-xs text-gray-500">Bookings</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center border border-slate-100">
+                <div className="text-lg font-semibold text-gray-900">{config.targets.calls}</div>
+                <div className="text-xs text-gray-500">Calls</div>
               </div>
             </div>
           </div>
@@ -138,7 +133,7 @@ export default function Home() {
           <div>
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Team Daily Standards</div>
             <p className="text-xs text-gray-400 mb-3">Individual standard × {activeTeamMembers} active team members</p>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-3">
               <div className="bg-blue-50 rounded-lg p-3 text-center border border-blue-100">
                 <div className="text-lg font-semibold text-blue-900">${teamDailyStandards.revenue}</div>
                 <div className="text-xs text-blue-600">Revenue</div>
