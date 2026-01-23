@@ -46,14 +46,13 @@ export default function Home() {
 
   const { monthName, year, workingDays, weekWorkingDays, config, teamTotals, teamMTDTargets, teamVariances, memberData, newMembers } = dashboardData;
 
-  // Find members needing attention (Underperforming)
-  const attentionRequired = [...memberData, ...newMembers].filter(m => m.status === 'Underperforming');
+  const allMembers = [...memberData, ...newMembers];
+  const attentionRequired = allMembers.filter(function(m) { return m.status === 'Underperforming'; });
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         
-        {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
             {monthName.toUpperCase()} {year}
@@ -61,11 +60,9 @@ export default function Home() {
           <h2 className="text-lg text-gray-500 font-medium">Sales Team Scorecard</h2>
         </div>
 
-        {/* Scoreboard Bar */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="grid grid-cols-12 gap-4">
             
-            {/* LEFT SIDE - Context Stats */}
             <div className="col-span-7">
               <div className="grid grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
@@ -87,7 +84,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* RIGHT SIDE - Daily Standards Strip */}
             <div className="col-span-5">
               <DailyStandardsStrip targets={config.targets} />
             </div>
@@ -95,7 +91,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* MTD Team Performance */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">MTD Team Performance</h3>
           <div className="grid grid-cols-5 gap-4">
@@ -137,7 +132,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Attention Required */}
         {attentionRequired.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-3">
@@ -145,10 +139,45 @@ export default function Home() {
               <h3 className="text-sm font-semibold text-red-800 uppercase tracking-wide">Attention Required</h3>
             </div>
             <div className="space-y-2">
-              {attentionRequired.map(member => (
-                <div key={member.name} className="flex items-center justify-between bg-white rounded-lg p-3 border border-red-100">
-                  <div>
-                    <span className="font-semibold text-gray-900">{member.name}</span>
-                    {member.isNew && <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">NEW</span>}
+              {attentionRequired.map(function(member) {
+                return (
+                  <div key={member.name} className="flex items-center justify-between bg-white rounded-lg p-3 border border-red-100">
+                    <div>
+                      <span className="font-semibold text-gray-900">{member.name}</span>
+                      {member.isNew && <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">NEW</span>}
+                    </div>
+                    <div className="text-sm text-red-600">
+                      Biggest gap: <span className="font-semibold capitalize">{member.biggestShortfall}</span> ({member.biggestShortfallDays ? member.biggestShortfallDays.toFixed(1) : '0'}d behind)
+                    </div>
                   </div>
-                  <div className="text-
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <PerformanceTable 
+          members={memberData} 
+          dailyTargets={config.targets}
+        />
+
+        {weekWorkingDays.used < workingDays.used && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">WTD Performance (Current Week)</h3>
+            <p className="text-sm text-gray-600">
+              {weekWorkingDays.used} of {weekWorkingDays.total} working days completed this week
+            </p>
+          </div>
+        )}
+
+        {newMembers.length > 0 && (
+          <NewMembersSection 
+            members={newMembers}
+            dailyTargets={config.targets}
+          />
+        )}
+
+      </div>
+    </div>
+  );
+}
