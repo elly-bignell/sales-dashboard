@@ -164,8 +164,8 @@ export function parseTeamMemberData(rows: any[]) {
   let totalCalls = 0;
   let daysWithData = 0;
 
-  dataRows.forEach(row => {
-    if (row[0]) { // Has a date
+  dataRows.forEach(function(row) {
+    if (row[0]) {
       totalRevenue += parseFloat(row[1]) || 0;
       totalSales += parseInt(row[2]) || 0;
       totalAttended += parseInt(row[3]) || 0;
@@ -214,16 +214,12 @@ export function calculateStatus(variances: {
     { name: 'calls', value: variances.calls.daysAheadBehind },
   ];
 
-  // Check for underperforming (any KPI < -0.5 days behind)
-  const hasUnderperforming = metrics.some(m => m.value < -0.5);
+  const hasUnderperforming = metrics.some(function(m) { return m.value < -0.5; });
+  const allPositive = metrics.every(function(m) { return m.value >= 0; });
   
-  // Check for overperforming (all KPIs >= 0)
-  const allPositive = metrics.every(m => m.value >= 0);
-  
-  // Find biggest shortfall
-  const biggestShortfall = metrics.reduce((worst, current) => 
-    current.value < worst.value ? current : worst
-  );
+  const biggestShortfall = metrics.reduce(function(worst, current) {
+    return current.value < worst.value ? current : worst;
+  });
 
   let status: 'Underperforming' | 'On Standard' | 'Overperforming';
   
@@ -262,14 +258,13 @@ export async function getDashboardData() {
     const monthName = now.toLocaleString('default', { month: 'long' });
     const year = now.getFullYear();
     
-    const memberData = [];
-    const newMembers = [];
+    const memberData: any[] = [];
+    const newMembers: any[] = [];
 
     for (const member of config.teamMembers) {
       const rows = await getSheetData(member.name);
       const data = parseTeamMemberData(rows);
       
-      // Calculate pro-rated targets for MTD
       const memberStart = new Date(member.startDate);
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const effectiveStart = memberStart > periodStart ? memberStart : periodStart;
@@ -284,14 +279,12 @@ export async function getDashboardData() {
         calls: config.targets.calls * memberWorkingDays,
       };
       
-      // Calculate variances
       const revenueVar = calculateVariance(data.revenue, mtdTargets.revenue, config.targets.revenue);
       const salesVar = calculateVariance(data.sales, mtdTargets.sales, config.targets.sales);
       const attendedVar = calculateVariance(data.attended, mtdTargets.attended, config.targets.attended);
       const bookingsVar = calculateVariance(data.bookings, mtdTargets.bookings, config.targets.bookings);
       const callsVar = calculateVariance(data.calls, mtdTargets.calls, config.targets.calls);
       
-      // Calculate overall progress
       const progress = Math.round((
         (data.revenue / mtdTargets.revenue || 0) +
         (data.sales / mtdTargets.sales || 0) +
@@ -300,7 +293,6 @@ export async function getDashboardData() {
         (data.calls / mtdTargets.calls || 0)
       ) / 5 * 100);
       
-      // Calculate status
       const statusInfo = calculateStatus({
         revenue: revenueVar,
         sales: salesVar,
@@ -336,21 +328,18 @@ export async function getDashboardData() {
       }
     }
 
-    // Sort by revenue (highest first)
-    memberData.sort((a, b) => b.data.revenue - a.data.revenue);
-    newMembers.sort((a, b) => b.data.revenue - a.data.revenue);
+    memberData.sort(function(a, b) { return b.data.revenue - a.data.revenue; });
+    newMembers.sort(function(a, b) { return b.data.revenue - a.data.revenue; });
     
-    // Calculate team totals
     const allMembers = [...memberData, ...newMembers];
     const teamTotals = {
-      revenue: allMembers.reduce((sum, m) => sum + m.data.revenue, 0),
-      sales: allMembers.reduce((sum, m) => sum + m.data.sales, 0),
-      attended: allMembers.reduce((sum, m) => sum + m.data.attended, 0),
-      bookings: allMembers.reduce((sum, m) => sum + m.data.bookings, 0),
-      calls: allMembers.reduce((sum, m) => sum + m.data.calls, 0),
+      revenue: allMembers.reduce(function(sum, m) { return sum + m.data.revenue; }, 0),
+      sales: allMembers.reduce(function(sum, m) { return sum + m.data.sales; }, 0),
+      attended: allMembers.reduce(function(sum, m) { return sum + m.data.attended; }, 0),
+      bookings: allMembers.reduce(function(sum, m) { return sum + m.data.bookings; }, 0),
+      calls: allMembers.reduce(function(sum, m) { return sum + m.data.calls; }, 0),
     };
     
-    // Calculate team MTD targets
     const teamMTDTargets = {
       revenue: config.targets.revenue * monthDays.used * config.teamSize,
       sales: config.targets.sales * monthDays.used * config.teamSize,
@@ -359,13 +348,21 @@ export async function getDashboardData() {
       calls: config.targets.calls * monthDays.used * config.teamSize,
     };
     
-    // Calculate team variances
+    // Team daily targets = individual target × team size
+    const teamDailyTargets = {
+      revenue: config.targets.revenue * config.teamSize,
+      sales: config.targets.sales * config.teamSize,
+      attended: config.targets.attended * config.teamSize,
+      bookings: config.targets.bookings * config.teamSize,
+      calls: config.targets.calls * config.teamSize,
+    };
+    
     const teamVariances = {
-      revenue: calculateVariance(teamTotals.revenue, teamMTDTargets.revenue, config.targets.revenue),
-      sales: calculateVariance(teamTotals.sales, teamMTDTargets.sales, config.targets.sales),
-      attended: calculateVariance(teamTotals.attended, teamMTDTargets.attended, config.targets.attended),
-      bookings: calculateVariance(teamTotals.bookings, teamMTDTargets.bookings, config.targets.bookings),
-      calls: calculateVariance(teamTotals.calls, teamMTDTargets.calls, config.targets.calls),
+      revenue: calculateVariance(teamTotals.revenue, teamMTDTargets.revenue, teamDailyTargets.revenue),
+      sales: calculateVariance(teamTotals.sales, teamMTDTargets.sales, teamDailyTargets.sales),
+      attended: calculateVariance(teamTotals.attended, teamMTDTargets.attended, teamDailyTargets.attended),
+      bookings: calculateVariance(teamTotals.bookings, teamMTDTargets.bookings, teamDailyTargets.bookings),
+      calls: calculateVariance(teamTotals.calls, teamMTDTargets.calls, teamDailyTargets.calls),
     };
 
     return {
@@ -390,10 +387,10 @@ export async function getDashboardData() {
 export async function getTeamMemberDetail(memberName: string) {
   try {
     const config = await getConfig();
-    const member = config.teamMembers.find(m => m.name === memberName);
+    const member = config.teamMembers.find(function(m) { return m.name === memberName; });
     
     if (!member) {
-      throw new Error(`Team member ${memberName} not found in config`);
+      throw new Error('Team member ' + memberName + ' not found in config');
     }
     
     const rows = await getSheetData(memberName);
@@ -406,7 +403,7 @@ export async function getTeamMemberDetail(memberName: string) {
       config,
     };
   } catch (error) {
-    console.error(`Error fetching data for ${memberName}:`, error);
+    console.error('Error fetching data for ' + memberName + ':', error);
     throw error;
   }
 }
