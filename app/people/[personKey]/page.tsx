@@ -71,6 +71,29 @@ export default function PersonPage() {
     return Math.round(value).toString();
   };
 
+  const getStatusBadge = function(status: string) {
+    if (status === 'Overperforming') {
+      return <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">Overperforming</span>;
+    } else if (status === 'Underperforming') {
+      return <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">Underperforming</span>;
+    }
+    return <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">On Standard</span>;
+  };
+
+  // Get per-metric status - falls back to calculating from actual vs target
+  const getMetricStatus = function(kpiKey: string) {
+    if (currentPeriod.detailedStatuses && currentPeriod.detailedStatuses[kpiKey]) {
+      return currentPeriod.detailedStatuses[kpiKey];
+    }
+    // Fallback
+    var actual = currentPeriod.data[kpiKey];
+    var target = currentPeriod.targets[kpiKey];
+    if (target === 0) return 'On Standard';
+    if (actual > target) return 'Overperforming';
+    if (actual < target) return 'Underperforming';
+    return 'On Standard';
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -129,9 +152,8 @@ export default function PersonPage() {
           </div>
         </div>
 
-        {/* At a Glance */}
+        {/* At a Glance - KPI Cards with per-metric status */}
         <div className="grid grid-cols-3 gap-6">
-          {/* KPI Cards */}
           <div className="col-span-2 grid grid-cols-5 gap-3">
             {kpis.map(function(kpi) {
               const actual = currentPeriod.data[kpi.key];
@@ -139,10 +161,14 @@ export default function PersonPage() {
               const variance = currentPeriod.variances[kpi.key];
               const progress = target > 0 ? Math.min((actual / target) * 100, 100) : 0;
               const isPositive = variance.diff >= 0;
+              const metricStatus = getMetricStatus(kpi.key);
 
               return (
                 <div key={kpi.key} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{kpi.label}</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{kpi.label}</div>
+                    {getStatusBadge(metricStatus)}
+                  </div>
                   <div className="text-2xl font-bold text-gray-900 mb-1">{formatValue(actual, kpi.format)}</div>
                   <div className="text-xs text-gray-500 mb-2">Target: {formatValue(target, kpi.format)}</div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5 mb-2">
@@ -161,7 +187,7 @@ export default function PersonPage() {
 
           {/* What's Driving the Result */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">What's Driving the Result</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{"What's Driving the Result"}</h3>
             {currentPeriod.status === 'Overperforming' ? (
               <p className="text-sm text-green-600">✓ Ahead on all KPIs</p>
             ) : currentPeriod.shortfalls && currentPeriod.shortfalls.length > 0 ? (
@@ -249,6 +275,7 @@ export default function PersonPage() {
                         <th className="text-right py-2 text-xs font-semibold text-gray-400 uppercase">Target</th>
                         <th className="text-right py-2 text-xs font-semibold text-gray-400 uppercase">Variance</th>
                         <th className="text-right py-2 text-xs font-semibold text-gray-400 uppercase">Days +/-</th>
+                        <th className="text-right py-2 text-xs font-semibold text-gray-400 uppercase">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -257,6 +284,7 @@ export default function PersonPage() {
                         const target = currentPeriod.targets[kpi.key];
                         const variance = currentPeriod.variances[kpi.key];
                         const isPositive = variance.diff >= 0;
+                        const metricStatus = getMetricStatus(kpi.key);
                         return (
                           <tr key={kpi.key} className="border-b border-gray-50">
                             <td className="py-3 text-sm font-medium text-gray-900">{kpi.label}</td>
@@ -267,6 +295,9 @@ export default function PersonPage() {
                             </td>
                             <td className={'py-3 text-sm text-right font-medium ' + (isPositive ? 'text-green-600' : 'text-red-600')}>
                               {isPositive ? '+' : ''}{variance.daysAheadBehind.toFixed(1)}d
+                            </td>
+                            <td className="py-3 text-right">
+                              {getStatusBadge(metricStatus)}
                             </td>
                           </tr>
                         );
