@@ -49,7 +49,7 @@ export default function HolidaysAndLeave({
                     return (
                               <div className="text-xs text-gray-400 italic">
                                         No public holidays in {monthName}
-                              </div>div>
+                              </div>
                             );
             }
         
