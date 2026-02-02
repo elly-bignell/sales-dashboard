@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 
-// Display name mapping - keeps sheet names stable, shows real names in UI
+// Display name mapping
 const DISPLAY_NAMES: Record<string, string> = {
   "Team Member 1": "FG & LT",
   "Team Member 2": "Dylan Munro",
@@ -21,7 +21,7 @@ const MONTH_NAMES: Record<string, number> = {
   'oct': 9, 'nov': 10, 'dec': 11
 };
 
-// Parse currency/number strings (handles $, commas, etc.)
+// Parse currency/number strings
 function parseNumber(value: any): number {
   if (value === null || value === undefined || value === '') return 0;
   const cleaned = String(value).replace(/[$,]/g, '').trim();
@@ -34,6 +34,40 @@ function parseInteger(value: any): number {
   const cleaned = String(value).replace(/[$,]/g, '').trim();
   const parsed = parseInt(cleaned);
   return isNaN(parsed) ? 0 : parsed;
+}
+
+// Get current time in Adelaide timezone
+function getAdelaideNow(): Date {
+  const adelaideStr = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' });
+  return new Date(adelaideStr);
+}
+
+// Get Adelaide date (just the date portion, no time)
+function getAdelaideToday(): Date {
+  const now = getAdelaideNow();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+// Check if the current Adelaide time is past 5pm
+function isPast5pmAdelaide(): boolean {
+  const now = getAdelaideNow();
+  return now.getHours() >= 17;
+}
+
+// Get the "effective" today for counting days used
+// Before 5pm: today doesn't count yet (use yesterday as cutoff)
+// After 5pm: today counts (use today as cutoff)
+function getEffectiveEndDate(): Date {
+  const today = getAdelaideToday();
+  if (isPast5pmAdelaide()) {
+    // After 5pm - today counts as a used day
+    return today;
+  } else {
+    // Before 5pm - today hasn't been "used" yet
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday;
+  }
 }
 
 // Parse date from various formats
@@ -191,39 +225,53 @@ export function getWorkingDays(startDate: Date, endDate: Date, holidays: string[
   return count;
 }
 
-// Get working days for current month
+// Get working days for current month (total in whole month)
 export function getMonthWorkingDays(holidays: string[]) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const today = getAdelaideToday();
+  const year = today.getFullYear();
+  const month = today.getMonth();
   
   const monthStart = new Date(year, month, 1);
   const monthEnd = new Date(year, month + 1, 0);
-  const today = new Date(year, month, now.getDate());
+  const effectiveEnd = getEffectiveEndDate();
+  
+  // Days used = working days from month start to effective end date
+  const used = effectiveEnd >= monthStart ? getWorkingDays(monthStart, effectiveEnd, holidays) : 0;
+  
+  // Days remaining = working days from day after effective end to month end
+  const dayAfterEffective = new Date(effectiveEnd);
+  dayAfterEffective.setDate(dayAfterEffective.getDate() + 1);
+  const remaining = dayAfterEffective <= monthEnd ? getWorkingDays(dayAfterEffective, monthEnd, holidays) : 0;
   
   return {
     total: getWorkingDays(monthStart, monthEnd, holidays),
-    used: getWorkingDays(monthStart, today, holidays),
-    remaining: getWorkingDays(new Date(today.getTime() + 86400000), monthEnd, holidays),
+    used,
+    remaining,
   };
 }
 
 // Get working days for current week
 export function getWeekWorkingDays(holidays: string[]) {
-  const now = new Date();
-  const weekStart = getWeekStart(now);
+  const today = getAdelaideToday();
+  const weekStart = getWeekStart(today);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
+  const effectiveEnd = getEffectiveEndDate();
   
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
+  // Days used = working days from week start to effective end date
+  const used = effectiveEnd >= weekStart ? getWorkingDays(weekStart, effectiveEnd, holidays) : 0;
+  
+  // Days remaining
+  const dayAfterEffective = new Date(effectiveEnd);
+  dayAfterEffective.setDate(dayAfterEffective.getDate() + 1);
+  const remaining = dayAfterEffective <= weekEnd ? getWorkingDays(dayAfterEffective, weekEnd, holidays) : 0;
   
   return {
     start: weekStart,
     end: weekEnd,
     total: getWorkingDays(weekStart, weekEnd, holidays),
-    used: getWorkingDays(weekStart, today, holidays),
-    remaining: getWorkingDays(new Date(today.getTime() + 86400000), weekEnd, holidays),
+    used,
+    remaining,
   };
 }
 
@@ -417,11 +465,11 @@ export function calculateStatus(variances: {
 export function isNewMember(startDate: string): boolean {
   const start = parseDate(startDate);
   if (!start) return false;
-  const now = new Date();
+  const now = getAdelaideToday();
   return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth() && start.getDate() > 1;
 }
 
-// Get person's working days for a period
+// Get person's working days for a period (uses 5pm cutoff)
 export function getPersonWorkingDaysForPeriod(periodStart: Date, periodEnd: Date, personStartDate: string, holidays: string[]): number {
   const pStart = parseDate(personStartDate);
   if (!pStart) return 0;
@@ -434,7 +482,7 @@ export function getPersonWorkingDaysForPeriod(periodStart: Date, periodEnd: Date
 export function getDaysOnBoard(startDate: string): number {
   const start = parseDate(startDate);
   if (!start) return 0;
-  const now = new Date();
+  const now = getAdelaideToday();
   const diffTime = Math.abs(now.getTime() - start.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
@@ -451,12 +499,14 @@ export async function getPersonData(personKey: string) {
     if (!member) throw new Error('Team member ' + personKey + ' not found');
 
     const rows = await getSheetData(personKey);
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const weekStart = getWeekStart(now);
+    const today = getAdelaideToday();
+    const effectiveEnd = getEffectiveEndDate();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const weekStart = getWeekStart(today);
 
-    const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, now);
-    const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, now, member.startDate, config.holidays);
+    // Use effectiveEnd for target calculations (5pm cutoff)
+    const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, today);
+    const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, effectiveEnd, member.startDate, config.holidays);
     const mtdTargets = {
       revenue: config.targets.revenue * mtdWorkingDays,
       sales: config.targets.sales * mtdWorkingDays,
@@ -465,8 +515,8 @@ export async function getPersonData(personKey: string) {
       calls: config.targets.calls * mtdWorkingDays,
     };
 
-    const wtdData = parseTeamMemberDataForPeriod(rows, weekStart, now);
-    const wtdWorkingDays = getPersonWorkingDaysForPeriod(weekStart, now, member.startDate, config.holidays);
+    const wtdData = parseTeamMemberDataForPeriod(rows, weekStart, today);
+    const wtdWorkingDays = getPersonWorkingDaysForPeriod(weekStart, effectiveEnd, member.startDate, config.holidays);
     const wtdTargets = {
       revenue: config.targets.revenue * wtdWorkingDays,
       sales: config.targets.sales * wtdWorkingDays,
@@ -519,14 +569,15 @@ export async function getPersonData(personKey: string) {
 export async function getAllPeopleData() {
   try {
     const config = await getConfig();
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const today = getAdelaideToday();
+    const effectiveEnd = getEffectiveEndDate();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const people = [];
 
     for (const member of config.teamMembers) {
       const rows = await getSheetData(member.name);
-      const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, now);
-      const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, now, member.startDate, config.holidays);
+      const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, today);
+      const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, effectiveEnd, member.startDate, config.holidays);
       const mtdTargets = {
         revenue: config.targets.revenue * mtdWorkingDays,
         sales: config.targets.sales * mtdWorkingDays,
@@ -566,13 +617,13 @@ export async function getAllPeopleData() {
 export async function getDashboardData() {
   try {
     const config = await getConfig();
-    const now = new Date();
+    const today = getAdelaideToday();
+    const effectiveEnd = getEffectiveEndDate();
     const monthDays = getMonthWorkingDays(config.holidays);
     const weekDays = getWeekWorkingDays(config.holidays);
-    const monthName = now.toLocaleString('default', { month: 'long' });
-    const year = now.getFullYear();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const today = new Date();
+    const monthName = today.toLocaleString('default', { month: 'long' });
+    const year = today.getFullYear();
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const activeCount = getActiveTeamMembers(config.teamMembers, today);
 
     const memberData: any[] = [];
@@ -585,7 +636,7 @@ export async function getDashboardData() {
     for (const member of config.teamMembers) {
       const rows = await getSheetData(member.name);
       const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, today);
-      const memberMTDWorkingDays = getPersonWorkingDaysForPeriod(monthStart, today, member.startDate, config.holidays);
+      const memberMTDWorkingDays = getPersonWorkingDaysForPeriod(monthStart, effectiveEnd, member.startDate, config.holidays);
       const mtdTargets = {
         revenue: config.targets.revenue * memberMTDWorkingDays,
         sales: config.targets.sales * memberMTDWorkingDays,
@@ -595,7 +646,7 @@ export async function getDashboardData() {
       };
 
       const wtdData = parseTeamMemberDataForPeriod(rows, weekDays.start, today);
-      const memberWTDWorkingDays = getPersonWorkingDaysForPeriod(weekDays.start, today, member.startDate, config.holidays);
+      const memberWTDWorkingDays = getPersonWorkingDaysForPeriod(weekDays.start, effectiveEnd, member.startDate, config.holidays);
       const wtdTargets = {
         revenue: config.targets.revenue * memberWTDWorkingDays,
         sales: config.targets.sales * memberWTDWorkingDays,
