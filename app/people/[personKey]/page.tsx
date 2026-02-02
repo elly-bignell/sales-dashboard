@@ -80,12 +80,10 @@ export default function PersonPage() {
     return <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">On Standard</span>;
   };
 
-  // Get per-metric status - falls back to calculating from actual vs target
   const getMetricStatus = function(kpiKey: string) {
     if (currentPeriod.detailedStatuses && currentPeriod.detailedStatuses[kpiKey]) {
       return currentPeriod.detailedStatuses[kpiKey];
     }
-    // Fallback
     var actual = currentPeriod.data[kpiKey];
     var target = currentPeriod.targets[kpiKey];
     if (target === 0) return 'On Standard';
@@ -165,9 +163,9 @@ export default function PersonPage() {
 
               return (
                 <div key={kpi.key} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{kpi.label}</div>
-                    {getStatusBadge(metricStatus)}
+                    <div className="mt-1">{getStatusBadge(metricStatus)}</div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900 mb-1">{formatValue(actual, kpi.format)}</div>
                   <div className="text-xs text-gray-500 mb-2">Target: {formatValue(target, kpi.format)}</div>
