@@ -42,28 +42,21 @@ function getAdelaideNow(): Date {
   return new Date(adelaideStr);
 }
 
-// Get Adelaide date (just the date portion, no time)
 function getAdelaideToday(): Date {
   const now = getAdelaideNow();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
-// Check if the current Adelaide time is past 5pm
 function isPast5pmAdelaide(): boolean {
   const now = getAdelaideNow();
   return now.getHours() >= 17;
 }
 
-// Get the "effective" today for counting days used
-// Before 5pm: today doesn't count yet (use yesterday as cutoff)
-// After 5pm: today counts (use today as cutoff)
 function getEffectiveEndDate(): Date {
   const today = getAdelaideToday();
   if (isPast5pmAdelaide()) {
-    // After 5pm - today counts as a used day
     return today;
   } else {
-    // Before 5pm - today hasn't been "used" yet
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     return yesterday;
@@ -225,7 +218,7 @@ export function getWorkingDays(startDate: Date, endDate: Date, holidays: string[
   return count;
 }
 
-// Get working days for current month (total in whole month)
+// Get working days for current month
 export function getMonthWorkingDays(holidays: string[]) {
   const today = getAdelaideToday();
   const year = today.getFullYear();
@@ -235,10 +228,8 @@ export function getMonthWorkingDays(holidays: string[]) {
   const monthEnd = new Date(year, month + 1, 0);
   const effectiveEnd = getEffectiveEndDate();
   
-  // Days used = working days from month start to effective end date
   const used = effectiveEnd >= monthStart ? getWorkingDays(monthStart, effectiveEnd, holidays) : 0;
   
-  // Days remaining = working days from day after effective end to month end
   const dayAfterEffective = new Date(effectiveEnd);
   dayAfterEffective.setDate(dayAfterEffective.getDate() + 1);
   const remaining = dayAfterEffective <= monthEnd ? getWorkingDays(dayAfterEffective, monthEnd, holidays) : 0;
@@ -258,10 +249,8 @@ export function getWeekWorkingDays(holidays: string[]) {
   weekEnd.setDate(weekStart.getDate() + 6);
   const effectiveEnd = getEffectiveEndDate();
   
-  // Days used = working days from week start to effective end date
   const used = effectiveEnd >= weekStart ? getWorkingDays(weekStart, effectiveEnd, holidays) : 0;
   
-  // Days remaining
   const dayAfterEffective = new Date(effectiveEnd);
   dayAfterEffective.setDate(dayAfterEffective.getDate() + 1);
   const remaining = dayAfterEffective <= weekEnd ? getWorkingDays(dayAfterEffective, weekEnd, holidays) : 0;
@@ -423,14 +412,47 @@ export function calculateVariance(actual: number, target: number, dailyTarget: n
   return { diff, percentage, daysAheadBehind };
 }
 
-// Calculate status
+// Get status for a single metric
+export function getMetricStatus(actual: number, target: number): 'Overperforming' | 'On Standard' | 'Underperforming' {
+  if (target === 0) return 'On Standard';
+  if (actual > target) return 'Overperforming';
+  if (actual < target) return 'Underperforming';
+  return 'On Standard';
+}
+
+// Calculate overall status - REVENUE BASED for dashboard/directory
 export function calculateStatus(variances: {
-  revenue: { daysAheadBehind: number };
-  sales: { daysAheadBehind: number };
-  attended: { daysAheadBehind: number };
-  bookings: { daysAheadBehind: number };
-  calls: { daysAheadBehind: number };
-}) {
+  revenue: { daysAheadBehind: number; diff: number };
+  sales: { daysAheadBehind: number; diff: number };
+  attended: { daysAheadBehind: number; diff: number };
+  bookings: { daysAheadBehind: number; diff: number };
+  calls: { daysAheadBehind: number; diff: number };
+}, actualRevenue?: number, targetRevenue?: number) {
+  // Overall status is based on REVENUE only
+  let status: 'Underperforming' | 'On Standard' | 'Overperforming';
+  
+  if (targetRevenue !== undefined && actualRevenue !== undefined) {
+    if (targetRevenue === 0) {
+      status = 'On Standard';
+    } else if (actualRevenue > targetRevenue) {
+      status = 'Overperforming';
+    } else if (actualRevenue < targetRevenue) {
+      status = 'Underperforming';
+    } else {
+      status = 'On Standard';
+    }
+  } else {
+    // Fallback to revenue variance
+    if (variances.revenue.diff > 0) {
+      status = 'Overperforming';
+    } else if (variances.revenue.diff < 0) {
+      status = 'Underperforming';
+    } else {
+      status = 'On Standard';
+    }
+  }
+
+  // Still track per-metric shortfalls for detail views
   const metrics = [
     { name: 'revenue', value: variances.revenue.daysAheadBehind },
     { name: 'sales', value: variances.sales.daysAheadBehind },
@@ -439,25 +461,28 @@ export function calculateStatus(variances: {
     { name: 'calls', value: variances.calls.daysAheadBehind },
   ];
 
-  const hasUnderperforming = metrics.some(function(m) { return m.value < -0.5; });
-  const allPositive = metrics.every(function(m) { return m.value >= 0; });
   const sortedMetrics = metrics.slice().sort(function(a, b) { return a.value - b.value; });
   const biggestShortfall = sortedMetrics[0];
-
-  let status: 'Underperforming' | 'On Standard' | 'Overperforming';
-  if (hasUnderperforming) {
-    status = 'Underperforming';
-  } else if (allPositive) {
-    status = 'Overperforming';
-  } else {
-    status = 'On Standard';
-  }
 
   return {
     status,
     biggestShortfall: biggestShortfall.name as 'revenue' | 'sales' | 'attended' | 'bookings' | 'calls',
     biggestShortfallDays: biggestShortfall.value,
     shortfalls: sortedMetrics.filter(function(m) { return m.value < 0; }).slice(0, 3),
+  };
+}
+
+// Calculate per-metric statuses for individual person pages
+export function calculateDetailedStatuses(
+  actuals: { revenue: number; sales: number; attended: number; bookings: number; calls: number },
+  targets: { revenue: number; sales: number; attended: number; bookings: number; calls: number }
+) {
+  return {
+    revenue: getMetricStatus(actuals.revenue, targets.revenue),
+    sales: getMetricStatus(actuals.sales, targets.sales),
+    attended: getMetricStatus(actuals.attended, targets.attended),
+    bookings: getMetricStatus(actuals.bookings, targets.bookings),
+    calls: getMetricStatus(actuals.calls, targets.calls),
   };
 }
 
@@ -469,7 +494,7 @@ export function isNewMember(startDate: string): boolean {
   return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth() && start.getDate() > 1;
 }
 
-// Get person's working days for a period (uses 5pm cutoff)
+// Get person's working days for a period
 export function getPersonWorkingDaysForPeriod(periodStart: Date, periodEnd: Date, personStartDate: string, holidays: string[]): number {
   const pStart = parseDate(personStartDate);
   if (!pStart) return 0;
@@ -504,7 +529,6 @@ export async function getPersonData(personKey: string) {
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const weekStart = getWeekStart(today);
 
-    // Use effectiveEnd for target calculations (5pm cutoff)
     const mtdData = parseTeamMemberDataForPeriod(rows, monthStart, today);
     const mtdWorkingDays = getPersonWorkingDaysForPeriod(monthStart, effectiveEnd, member.startDate, config.holidays);
     const mtdTargets = {
@@ -541,8 +565,13 @@ export async function getPersonData(personKey: string) {
       calls: calculateVariance(wtdData.calls, wtdTargets.calls, config.targets.calls),
     };
 
-    const mtdStatus = calculateStatus(mtdVariances);
-    const wtdStatus = calculateStatus(wtdVariances);
+    const mtdStatus = calculateStatus(mtdVariances, mtdData.revenue, mtdTargets.revenue);
+    const wtdStatus = calculateStatus(wtdVariances, wtdData.revenue, wtdTargets.revenue);
+
+    // Detailed per-metric statuses for individual page
+    const mtdDetailedStatuses = calculateDetailedStatuses(mtdData, mtdTargets);
+    const wtdDetailedStatuses = calculateDetailedStatuses(wtdData, wtdTargets);
+
     const allData = parseAllPersonData(rows);
     const personalBests = calculatePersonalBests(allData);
 
@@ -554,8 +583,24 @@ export async function getPersonData(personKey: string) {
       weeksOnBoard: getWeeksOnBoard(member.startDate),
       isNew: isNewMember(member.startDate),
       dailyTargets: config.targets,
-      mtd: { data: mtdData, targets: mtdTargets, variances: mtdVariances, workingDays: mtdWorkingDays, status: mtdStatus.status, shortfalls: mtdStatus.shortfalls },
-      wtd: { data: wtdData, targets: wtdTargets, variances: wtdVariances, workingDays: wtdWorkingDays, status: wtdStatus.status, shortfalls: wtdStatus.shortfalls },
+      mtd: {
+        data: mtdData,
+        targets: mtdTargets,
+        variances: mtdVariances,
+        workingDays: mtdWorkingDays,
+        status: mtdStatus.status,
+        shortfalls: mtdStatus.shortfalls,
+        detailedStatuses: mtdDetailedStatuses,
+      },
+      wtd: {
+        data: wtdData,
+        targets: wtdTargets,
+        variances: wtdVariances,
+        workingDays: wtdWorkingDays,
+        status: wtdStatus.status,
+        shortfalls: wtdStatus.shortfalls,
+        detailedStatuses: wtdDetailedStatuses,
+      },
       personalBests,
       allDailyData: allData,
     };
@@ -592,7 +637,7 @@ export async function getAllPeopleData() {
         bookings: calculateVariance(mtdData.bookings, mtdTargets.bookings, config.targets.bookings),
         calls: calculateVariance(mtdData.calls, mtdTargets.calls, config.targets.calls),
       };
-      const statusInfo = calculateStatus(mtdVariances);
+      const statusInfo = calculateStatus(mtdVariances, mtdData.revenue, mtdTargets.revenue);
 
       people.push({
         personKey: member.name,
@@ -683,7 +728,7 @@ export async function getDashboardData() {
       const callsVar = calculateVariance(mtdData.calls, mtdTargets.calls, config.targets.calls);
 
       const progress = mtdTargets.revenue > 0 ? Math.round(((mtdData.revenue / mtdTargets.revenue || 0) + (mtdData.sales / mtdTargets.sales || 0) + (mtdData.attended / mtdTargets.attended || 0) + (mtdData.bookings / mtdTargets.bookings || 0) + (mtdData.calls / mtdTargets.calls || 0)) / 5 * 100) : 0;
-      const statusInfo = calculateStatus({ revenue: revenueVar, sales: salesVar, attended: attendedVar, bookings: bookingsVar, calls: callsVar });
+      const statusInfo = calculateStatus({ revenue: revenueVar, sales: salesVar, attended: attendedVar, bookings: bookingsVar, calls: callsVar }, mtdData.revenue, mtdTargets.revenue);
 
       const memberInfo = {
         name: member.name,
