@@ -38,8 +38,34 @@ function parseInteger(value: any): number {
 
 // Get current time in Adelaide timezone
 function getAdelaideNow(): Date {
-  const adelaideStr = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' });
-  return new Date(adelaideStr);
+const utcDate = new Date();
+    const adelaideOffset = utcDate.toLocaleString('en-AU', { timeZone: 'Australia/Adelaide', timeZoneName: 'short' });
+    // Parse the Adelaide date string and adjust for UTC
+    const dateFormatter = new Intl.DateTimeFormat('en-AU', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+          timeZone: 'Australia/Adelaide'
+    });
+    const parts = dateFormatter.formatToParts(utcDate);
+    const partMap: Record<string, string> = {};
+    parts.forEach(part => {
+          if (part.type !== 'literal') {
+                  partMap[part.type] = part.value;
+          }
+    });
+    return new Date(
+          parseInt(partMap.year),
+          parseInt(partMap.month) - 1,
+          parseInt(partMap.day),
+          parseInt(partMap.hour),
+          parseInt(partMap.minute),
+          parseInt(partMap.second)
+        );
 }
 
 function getAdelaideToday(): Date {
