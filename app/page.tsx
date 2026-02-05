@@ -258,6 +258,34 @@ export default function Home() {
           </div>
         </div>
 
+        {/* MTD Individual Targets (as at today) */}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">MTD Individual Targets (as at today)</h3>
+          <p className="text-xs text-gray-400 mb-3">Daily standard × {workingDays.used} working days used this month — where each person should be right now</p>
+          <div className="grid grid-cols-5 gap-4">
+            <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4 text-center">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Revenue</div>
+              <div className="text-2xl font-bold text-amber-900">${(config.targets.revenue * workingDays.used).toLocaleString()}</div>
+            </div>
+            <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4 text-center">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Sales</div>
+              <div className="text-2xl font-bold text-amber-900">{config.targets.sales * workingDays.used}</div>
+            </div>
+            <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4 text-center">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Attended</div>
+              <div className="text-2xl font-bold text-amber-900">{config.targets.attended * workingDays.used}</div>
+            </div>
+            <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4 text-center">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Bookings</div>
+              <div className="text-2xl font-bold text-amber-900">{config.targets.bookings * workingDays.used}</div>
+            </div>
+            <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4 text-center">
+              <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Calls</div>
+              <div className="text-2xl font-bold text-amber-900">{config.targets.calls * workingDays.used}</div>
+            </div>
+          </div>
+        </div>
+
         {/* Attention Required */}
         {attentionRequired.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-5">
